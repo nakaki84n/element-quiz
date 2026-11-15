@@ -349,7 +349,7 @@ function showNameResults() {
 }
 
 // ---- 答え合わせ結果の表示 ----
-// 自分の答えの前に ○（正解）✕（不正解）－（未入力）を付け、
+// 自分の答えの前に ○（正解）✕（不正解）を付け、未入力なら小さく「未入力」と出す。
 // 不正解・未入力のときは下の行に「→ 正解」を出す。
 
 const MARKS: Record<Result, string> = { correct: "○", wrong: "✕", blank: "－" };
@@ -361,8 +361,15 @@ function markSpan(result: Result): HTMLSpanElement {
   return span;
 }
 
-/** 「○ Be」「✕ ベリリム」のように、結果の記号と自分の答えを並べる */
+/** 「○ Be」「✕ ベリリム」のように、結果の記号と自分の答えを並べる。未入力なら「未入力」 */
 function fillResult(el: HTMLElement, result: Result, mine: string) {
+  if (result === "blank") {
+    const blank = document.createElement("span");
+    blank.className = "res-blank-text";
+    blank.textContent = "未入力";
+    el.replaceChildren(blank);
+    return;
+  }
   el.replaceChildren(markSpan(result), mine);
 }
 

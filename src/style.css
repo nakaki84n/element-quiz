@@ -332,6 +332,17 @@ body {
   color: var(--muted);
 }
 
+/* 未入力は小さく控えめに出し、下の「→ 正解」を目立たせる */
+.res-blank-text {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+}
+
+.cell-name-result .res-blank-text {
+  font-size: 0.62rem;
+}
+
 .res-arrow {
   margin-right: 0.2em;
   color: var(--correct);
