@@ -1,7 +1,7 @@
 import "./style.css";
 import { ELEMENTS } from "./elements";
 import { isCorrectName } from "./name";
-import { GROUP_KEYS, inRange, PERIOD_KEYS, rangeLabel, type RangeKey, selectionLabel, SERIES_KEYS } from "./range";
+import { GROUP_KEYS, GROUP_NAMES, inRange, PERIOD_KEYS, rangeLabel, type RangeKey, selectionLabel, SERIES_KEYS } from "./range";
 import { createHeatmap } from "./heatmap";
 import { renderHistory } from "./history";
 import { createSettings } from "./settings";
@@ -91,6 +91,15 @@ for (const [label, keys] of [
   for (const key of keys) {
     const chip = button(key.startsWith("p") || key.startsWith("g") ? key.slice(1) : rangeLabel(key), "chip");
     chip.title = rangeLabel(key);
+    // 慣用名のある族は「1 アルカリ金属」のように名前も添える
+    const common = GROUP_NAMES[key];
+    if (common) {
+      const sub = document.createElement("span");
+      sub.className = "chip-sub";
+      sub.textContent = common;
+      chip.append(sub);
+      chip.title = `${rangeLabel(key)}（${common}）`;
+    }
     chip.addEventListener("click", () => toggleRange(key));
     rangeChips.set(key, chip);
     chips.append(chip);
@@ -124,6 +133,13 @@ mapButton.addEventListener("click", () => {
   mapButton.setAttribute("aria-pressed", String(heatmap.isOpen()));
 });
 heatmap.bar.querySelector(".button-primary")!.addEventListener("click", () => mapButton.setAttribute("aria-pressed", "false"));
+
+/** 苦手マップを開いていたら閉じる（モード切り替えなどを押したときは、すぐ練習画面に戻す） */
+function closeMap() {
+  if (!heatmap.isOpen()) return;
+  heatmap.close();
+  mapButton.setAttribute("aria-pressed", "false");
+}
 
 function button(label: string, className = "button"): HTMLButtonElement {
   const b = document.createElement("button");
@@ -441,6 +457,7 @@ function confirmDiscard(message: string): boolean {
 }
 
 resetButton.addEventListener("click", () => {
+  closeMap();
   if (!confirmDiscard("入力した内容を消して最初からやり直しますか？")) return;
   reset();
 });
@@ -508,8 +525,14 @@ function toggleRange(key: RangeKey) {
   changeSelection(next);
 }
 
-modeButtons.full.addEventListener("click", () => setMode("full"));
-modeButtons.focus.addEventListener("click", () => setMode("focus"));
+modeButtons.full.addEventListener("click", () => {
+  closeMap();
+  setMode("full");
+});
+modeButtons.focus.addEventListener("click", () => {
+  closeMap();
+  setMode("focus");
+});
 
 // 集中モードでは表の周期・族の番号を押しても範囲を選べる
 for (const label of table.querySelectorAll<HTMLElement>("[data-range]")) {

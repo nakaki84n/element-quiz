@@ -11,6 +11,16 @@ export const PERIOD_KEYS: RangeKey[] = Array.from({ length: 7 }, (_, i) => `p${i
 export const GROUP_KEYS: RangeKey[] = Array.from({ length: 18 }, (_, i) => `g${i + 1}`);
 export const SERIES_KEYS: RangeKey[] = ["lanthanoid", "actinoid"];
 
+/** 慣用名のある族 */
+export const GROUP_NAMES: Readonly<Record<RangeKey, string>> = {
+  g1: "アルカリ金属",
+  g2: "アルカリ土類金属",
+  g15: "ニクトゲン",
+  g16: "カルコゲン",
+  g17: "ハロゲン",
+  g18: "貴ガス",
+};
+
 export function inRange(e: Element, key: RangeKey): boolean {
   if (key === "lanthanoid" || key === "actinoid") return e.series === key;
   if (e.series) return false;

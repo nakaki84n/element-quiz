@@ -476,6 +476,11 @@ body {
   cursor: pointer;
 }
 
+.chip-sub {
+  margin-left: 0.35em;
+  font-size: 0.72rem;
+}
+
 .chip:hover {
   border-color: var(--muted);
 }
