@@ -1,0 +1,153 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --surface: #191c23;
+  --surface-2: #222631;
+  --border: #2e3340;
+  --text: #e6e8ee;
+  --muted: #8a91a3;
+  --accent: #7aa2ff;
+  --cell-w: 5.25rem;
+  --cell-h: 4.5rem;
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* 表が画面幅より広いときは表の部分だけ横スクロール */
+.ptable-scroll {
+  overflow-x: auto;
+  padding: 1rem;
+}
+
+.ptable {
+  display: grid;
+  grid-template-columns: 1.75rem repeat(18, var(--cell-w));
+  grid-template-rows: 1.5rem repeat(7, var(--cell-h)) 0.75rem repeat(2, var(--cell-h));
+  gap: 3px;
+  width: max-content;
+  margin: 0 auto;
+}
+
+.label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.label-series {
+  justify-content: flex-end;
+  padding-right: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.9rem 0.2rem 0.3rem;
+}
+
+.cell-z {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.3rem;
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+
+/* 記号・名前の入力欄の場所（ステップ2以降で入力欄になる） */
+.cell-symbol,
+.cell-name {
+  width: 100%;
+  border-radius: 4px;
+  background: var(--surface-2);
+  text-align: center;
+  color: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.cell-symbol {
+  height: 1.6rem;
+  line-height: 1.6rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.cell-name {
+  height: 1.2rem;
+  line-height: 1.2rem;
+  font-size: 0.62rem;
+}
+
+/* 長い元素名（アインスタイニウムなど）は少し小さくして1行に収める */
+.cell-name-long {
+  font-size: 0.54rem;
+  letter-spacing: -0.03em;
+}
+
+.cell-name-xlong {
+  font-size: 0.5rem;
+  letter-spacing: -0.05em;
+}
+
+.show-answers .cell-symbol,
+.show-answers .cell-name {
+  color: var(--text);
+}
+
+.cell-ref {
+  background: transparent;
+  border-style: dashed;
+  padding: 0.2rem;
+  color: var(--muted);
+}
+
+.cell-ref-range {
+  font-size: 0.75rem;
+}
+
+.cell-ref-name {
+  font-size: 0.6rem;
+}
