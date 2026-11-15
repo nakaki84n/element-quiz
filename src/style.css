@@ -753,23 +753,13 @@ body {
   border-radius: 3px;
 }
 
-.map-palette {
-  font: inherit;
-  font-size: 0.8rem;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface-2);
-  color: var(--text);
-}
-
 [data-view="map"] .cell-map {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.1rem;
   width: 100%;
-  color: var(--map-fg, var(--text));
+  color: var(--text);
 }
 
 /* マップ表示中は練習の範囲や結果に関係なく全マスを表示する */
@@ -788,7 +778,7 @@ body {
 }
 
 [data-view="map"] .cell-z {
-  color: var(--map-fg, var(--muted));
+  color: var(--muted);
   opacity: 0.7;
 }
 
@@ -798,11 +788,6 @@ body {
 
 [data-view="map"] .cell.map-none .cell-map {
   color: var(--muted);
-}
-
-/* 正答率 50% 未満は枠で強調する */
-[data-view="map"] .cell.map-weak {
-  box-shadow: inset 0 0 0 2px #ff8a8a;
 }
 
 .cell-map-symbol {
