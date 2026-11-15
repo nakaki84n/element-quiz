@@ -86,11 +86,13 @@ export function buildTable(): { root: HTMLDivElement; cells: Map<number, CellRef
 
   for (let g = 1; g <= 18; g++) {
     const h = div("label label-group", String(g));
+    h.dataset.range = `g${g}`;
     place(h, 1, groupCol(g));
     root.append(h);
   }
   for (let p = 1; p <= 7; p++) {
     const h = div("label label-period", String(p));
+    h.dataset.range = `p${p}`;
     place(h, periodRow(p), 1);
     root.append(h);
   }
@@ -113,6 +115,7 @@ export function buildTable(): { root: HTMLDivElement; cells: Map<number, CellRef
     ["actinoid", "アクチノイド"],
   ] as const) {
     const h = div("label label-series", name);
+    h.dataset.range = series;
     place(h, F_ROW[series], groupCol(1), 2);
     root.append(h);
   }

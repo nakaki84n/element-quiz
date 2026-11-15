@@ -1,6 +1,7 @@
 import "./style.css";
 import { ELEMENTS } from "./elements";
 import { isCorrectName } from "./name";
+import { GROUP_KEYS, inRange, PERIOD_KEYS, rangeLabel, type RangeKey, selectionLabel, SERIES_KEYS } from "./range";
 import { letterFromKey, normalizeSymbol, SYMBOL_MAX } from "./symbol";
 import { buildTable, type CellRefs } from "./table";
 
@@ -8,9 +9,14 @@ type Phase = "symbol" | "symbolResult" | "name" | "nameResult";
 type Result = "correct" | "wrong" | "blank";
 /** key: 物理キーボードで入力する / touch: 画面キーボードで入力する */
 type InputMode = "key" | "touch";
+/** full: 全体モード / focus: 集中モード */
+type Mode = "full" | "focus";
 
 const state = {
   phase: "symbol" as Phase,
+  mode: "full" as Mode,
+  /** 集中モードで選んでいる範囲 */
+  selection: new Set<RangeKey>(),
   /** 出題する原子番号（原子番号順） */
   targets: ELEMENTS.map((e) => e.z),
   symbols: new Map<number, string>(),
@@ -38,7 +44,52 @@ header.className = "header";
 const title = document.createElement("h1");
 title.textContent = "元素記号暗記";
 const resetButton = button("最初から", "button button-ghost");
-header.append(title, resetButton);
+
+// 全体モード・集中モードの切り替え
+const modeSwitch = document.createElement("div");
+modeSwitch.className = "segmented";
+modeSwitch.setAttribute("role", "group");
+modeSwitch.setAttribute("aria-label", "モード");
+const modeButtons = {
+  full: button("全体", "segmented-item"),
+  focus: button("集中", "segmented-item"),
+} as const;
+modeSwitch.append(modeButtons.full, modeButtons.focus);
+
+const headerRight = document.createElement("div");
+headerRight.className = "header-right";
+headerRight.append(modeSwitch, resetButton);
+header.append(title, headerRight);
+
+// 集中モードの範囲選択
+const rangePanel = document.createElement("div");
+rangePanel.className = "range-panel";
+const rangeChips = new Map<RangeKey, HTMLButtonElement>();
+for (const [label, keys] of [
+  ["周期", PERIOD_KEYS],
+  ["族", GROUP_KEYS],
+  ["", SERIES_KEYS],
+] as const) {
+  const row = document.createElement("div");
+  row.className = "range-row";
+  const name = document.createElement("span");
+  name.className = "range-row-label";
+  name.textContent = label;
+  const chips = document.createElement("div");
+  chips.className = "range-chips";
+  row.append(name, chips);
+  for (const key of keys) {
+    const chip = button(key.startsWith("p") || key.startsWith("g") ? key.slice(1) : rangeLabel(key), "chip");
+    chip.title = rangeLabel(key);
+    chip.addEventListener("click", () => toggleRange(key));
+    rangeChips.set(key, chip);
+    chips.append(chip);
+  }
+  rangePanel.append(row);
+}
+const clearRange = button("選択をすべて解除", "button button-ghost button-small");
+clearRange.addEventListener("click", () => changeSelection(new Set()));
+rangePanel.lastElementChild!.querySelector(".range-chips")!.append(clearRange);
 
 const scroller = document.createElement("div");
 scroller.className = "ptable-scroll";
@@ -52,7 +103,7 @@ const actions = document.createElement("div");
 actions.className = "actions";
 footer.append(status, actions);
 
-app.append(header, scroller, footer);
+app.append(header, rangePanel, scroller, footer);
 
 function button(label: string, className = "button"): HTMLButtonElement {
   const b = document.createElement("button");
@@ -206,6 +257,7 @@ for (const [z, refs] of cells) {
   refs.nameInput.addEventListener("keydown", (e) => onTextKeydown(e, z));
   refs.cell.addEventListener("click", () => {
     if (state.phase !== "symbol" && state.phase !== "name") return;
+    if (!state.targets.includes(z)) return;
     const field = activeField(z);
     if (document.activeElement !== field) field.focus();
   });
@@ -253,7 +305,7 @@ function gradeNames() {
   render();
 }
 
-function reset() {
+function reset(focusFirst = true) {
   state.phase = "symbol";
   state.names.clear();
   state.symbolResults.clear();
@@ -261,22 +313,100 @@ function reset() {
   for (const [z, refs] of cells) {
     setSymbol(z, "");
     refs.nameInput.value = "";
-    refs.cell.className = "cell";
+    refs.cell.classList.remove(
+      ...["correct", "wrong", "blank"].flatMap((r) => [`sym-${r}`, `name-${r}`]),
+    );
     refs.symbolAnswer.textContent = "";
     refs.nameAnswer.textContent = "";
   }
   render();
   scroller.scrollTo({ left: 0 });
-  focusField(state.targets[0]);
+  if (focusFirst && state.targets.length > 0) focusField(state.targets[0]);
+}
+
+/** 入力途中の内容があれば、消してよいか確認する */
+function confirmDiscard(message: string): boolean {
+  const inProgress = (state.phase === "symbol" && state.symbols.size > 0) || state.phase === "name";
+  return !inProgress || window.confirm(message);
 }
 
 resetButton.addEventListener("click", () => {
-  const inProgress = (state.phase === "symbol" && state.symbols.size > 0) || state.phase === "name";
-  if (inProgress && !window.confirm("入力した内容を消して最初からやり直しますか？")) return;
+  if (!confirmDiscard("入力した内容を消して最初からやり直しますか？")) return;
   reset();
 });
 
+// ---- 全体モード・集中モード ----
+
+function computeTargets(): number[] {
+  if (state.mode === "full") return ELEMENTS.map((e) => e.z);
+  return ELEMENTS.filter((e) => [...state.selection].some((key) => inRange(e, key))).map((e) => e.z);
+}
+
+/** モードや範囲を変えたら、出題するマスを決め直して最初からにする */
+function applyTargets() {
+  state.targets = computeTargets();
+  const targets = new Set(state.targets);
+  for (const [z, refs] of cells) {
+    const off = !targets.has(z);
+    refs.cell.classList.toggle("is-off", off);
+    refs.symbolKey.tabIndex = off ? -1 : 0;
+    refs.symbolInput.disabled = off;
+  }
+  for (const label of table.querySelectorAll<HTMLElement>("[data-range]")) {
+    label.classList.toggle("is-selected", state.mode === "focus" && state.selection.has(label.dataset.range!));
+  }
+  for (const [key, chip] of rangeChips) {
+    const on = state.selection.has(key);
+    chip.classList.toggle("is-selected", on);
+    chip.setAttribute("aria-pressed", String(on));
+  }
+  reset(false);
+  // 選んだ範囲が画面の外にあるときは見える位置までスクロールする
+  const first = state.targets[0];
+  if (first !== undefined) {
+    const { cell } = cells.get(first)!;
+    scroller.scrollTo({ left: Math.max(0, cell.offsetLeft - scroller.clientWidth / 2 + cell.offsetWidth / 2) });
+  }
+}
+
+function setMode(mode: Mode) {
+  if (mode === state.mode) return;
+  if (!confirmDiscard("入力した内容は消えます。モードを切り替えますか？")) return;
+  state.mode = mode;
+  for (const [m, b] of Object.entries(modeButtons)) b.setAttribute("aria-pressed", String(m === mode));
+  app.dataset.mode = mode;
+  applyTargets();
+}
+
+function changeSelection(next: Set<RangeKey>) {
+  if (!confirmDiscard("入力した内容は消えます。範囲を変えますか？")) return;
+  state.selection = next;
+  applyTargets();
+}
+
+function toggleRange(key: RangeKey) {
+  const next = new Set(state.selection);
+  if (next.has(key)) next.delete(key);
+  else next.add(key);
+  changeSelection(next);
+}
+
+modeButtons.full.addEventListener("click", () => setMode("full"));
+modeButtons.focus.addEventListener("click", () => setMode("focus"));
+
+// 集中モードでは表の周期・族の番号を押しても範囲を選べる
+for (const label of table.querySelectorAll<HTMLElement>("[data-range]")) {
+  label.addEventListener("click", () => {
+    if (state.mode === "focus") toggleRange(label.dataset.range!);
+  });
+}
+
 // ---- 表示 ----
+
+/** 集中モードで練習中の範囲（例: "第3周期・1族"） */
+function scopeTag(): string {
+  return state.mode === "focus" ? `<span class="scope">${selectionLabel(state.selection)}</span>` : "";
+}
 
 function score(results: Map<number, Result>): string {
   const total = state.targets.length;
@@ -286,23 +416,24 @@ function score(results: Map<number, Result>): string {
 
 function renderStatus() {
   const total = state.targets.length;
+  if (total === 0) return;
   switch (state.phase) {
     case "symbol": {
       const filled = state.targets.filter((z) => getSymbol(z)).length;
-      status.innerHTML = `<span class="phase">記号ターン</span>入力 ${filled} / ${total}`;
+      status.innerHTML = `${scopeTag()}<span class="phase">記号ターン</span>入力 ${filled} / ${total}`;
       break;
     }
     case "symbolResult":
-      status.innerHTML = `<span class="phase">記号ターン 結果</span>正解 ${score(state.symbolResults)}`;
+      status.innerHTML = `${scopeTag()}<span class="phase">記号ターン 結果</span>正解 ${score(state.symbolResults)}`;
       break;
     case "name": {
       const filled = state.targets.filter((z) => getName(z).trim()).length;
-      status.innerHTML = `<span class="phase">名前ターン</span>入力 ${filled} / ${total}`;
+      status.innerHTML = `${scopeTag()}<span class="phase">名前ターン</span>入力 ${filled} / ${total}`;
       break;
     }
     case "nameResult":
       status.innerHTML =
-        `<span class="phase">結果</span>` +
+        `${scopeTag()}<span class="phase">結果</span>` +
         `<span class="score">記号 ${score(state.symbolResults)}</span>` +
         `<span class="score">名前 ${score(state.nameResults)}</span>`;
       break;
@@ -312,10 +443,18 @@ function renderStatus() {
 function render() {
   app.dataset.phase = state.phase;
   app.dataset.input = state.inputMode;
-  for (const refs of cells.values()) {
+  app.dataset.mode = state.mode;
+  const targets = new Set(state.targets);
+  for (const [z, refs] of cells) {
     refs.symbolInput.readOnly = state.phase !== "symbol";
-    refs.nameInput.disabled = state.phase === "symbol" || state.phase === "symbolResult";
+    refs.nameInput.disabled = !targets.has(z) || state.phase === "symbol" || state.phase === "symbolResult";
     refs.nameInput.readOnly = state.phase !== "name";
+  }
+
+  if (state.targets.length === 0) {
+    actions.replaceChildren();
+    status.innerHTML = `<span class="phase">集中モード</span>練習する周期・族を上で選んでください`;
+    return;
   }
 
   actions.replaceChildren();
@@ -342,4 +481,6 @@ function render() {
   renderStatus();
 }
 
+modeButtons.full.setAttribute("aria-pressed", "true");
+modeButtons.focus.setAttribute("aria-pressed", "false");
 render();
