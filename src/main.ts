@@ -2,6 +2,8 @@ import "./style.css";
 import { ELEMENTS } from "./elements";
 import { isCorrectName } from "./name";
 import { GROUP_KEYS, inRange, PERIOD_KEYS, rangeLabel, type RangeKey, selectionLabel, SERIES_KEYS } from "./range";
+import { renderHistory } from "./history";
+import { loadSession, recordNameTurn, recordSymbolTurn, saveSession } from "./storage";
 import { letterFromKey, normalizeSymbol, SYMBOL_MAX } from "./symbol";
 import { buildTable, type CellRefs } from "./table";
 
@@ -23,6 +25,8 @@ const state = {
   names: new Map<number, string>(),
   symbolResults: new Map<number, Result>(),
   nameResults: new Map<number, Result>(),
+  /** この回の記録の id（記号ターンの答え合わせで決まる） */
+  recordId: null as string | null,
   inputMode: (window.matchMedia("(pointer: coarse)").matches ? "touch" : "key") as InputMode,
 };
 
@@ -44,6 +48,8 @@ header.className = "header";
 const title = document.createElement("h1");
 title.textContent = "元素記号暗記";
 const resetButton = button("最初から", "button button-ghost");
+const historyButton = button("履歴", "button button-ghost");
+historyButton.addEventListener("click", () => renderHistory());
 
 // 全体モード・集中モードの切り替え
 const modeSwitch = document.createElement("div");
@@ -58,7 +64,7 @@ modeSwitch.append(modeButtons.full, modeButtons.focus);
 
 const headerRight = document.createElement("div");
 headerRight.className = "header-right";
-headerRight.append(modeSwitch, resetButton);
+headerRight.append(modeSwitch, historyButton, resetButton);
 header.append(title, headerRight);
 
 // 集中モードの範囲選択
@@ -137,6 +143,7 @@ function setSymbol(z: number, value: string) {
   refs.symbolKey.textContent = v;
   if (refs.symbolInput.value !== v) refs.symbolInput.value = v;
   renderStatus();
+  persist();
 }
 
 function getName(z: number): string {
@@ -253,6 +260,7 @@ for (const [z, refs] of cells) {
   refs.nameInput.addEventListener("input", () => {
     state.names.set(z, refs.nameInput.value);
     renderStatus();
+    persist();
   });
   refs.nameInput.addEventListener("keydown", (e) => onTextKeydown(e, z));
   refs.cell.addEventListener("click", () => {
@@ -270,8 +278,24 @@ function confirmBlanks(get: (z: number) => string): boolean {
   return blanks === 0 || window.confirm(`未入力のマスが ${blanks} 個あります。答え合わせしますか？`);
 }
 
+/** 範囲の表示名（記録用） */
+function scopeName(): string {
+  return state.mode === "full" ? "全体" : selectionLabel(state.selection);
+}
+
 function gradeSymbols() {
   if (!confirmBlanks(getSymbol)) return;
+  showSymbolResults();
+  state.phase = "symbolResult";
+  state.recordId = recordSymbolTurn(
+    scopeName(),
+    new Map(state.targets.map((z) => [z, state.symbolResults.get(z) === "correct"])),
+  );
+  render();
+}
+
+/** 入力された記号を採点して色分けする */
+function showSymbolResults() {
   for (const z of state.targets) {
     const refs = cells.get(z)!;
     const answer = getSymbol(z);
@@ -280,8 +304,6 @@ function gradeSymbols() {
     refs.cell.classList.add(`sym-${result}`);
     refs.symbolAnswer.textContent = result === "correct" ? "" : refs.element.symbol;
   }
-  state.phase = "symbolResult";
-  render();
 }
 
 function startNameTurn() {
@@ -293,6 +315,16 @@ function startNameTurn() {
 
 function gradeNames() {
   if (!confirmBlanks(getName)) return;
+  showNameResults();
+  state.phase = "nameResult";
+  if (state.recordId) {
+    recordNameTurn(state.recordId, new Map(state.targets.map((z) => [z, state.nameResults.get(z) === "correct"])));
+  }
+  render();
+}
+
+/** 入力された元素名を採点して色分けする */
+function showNameResults() {
   for (const z of state.targets) {
     const refs = cells.get(z)!;
     const answer = getName(z).trim();
@@ -301,12 +333,11 @@ function gradeNames() {
     refs.cell.classList.add(`name-${result}`);
     refs.nameAnswer.textContent = result === "correct" ? "" : refs.element.nameJa;
   }
-  state.phase = "nameResult";
-  render();
 }
 
 function reset(focusFirst = true) {
   state.phase = "symbol";
+  state.recordId = null;
   state.names.clear();
   state.symbolResults.clear();
   state.nameResults.clear();
@@ -369,12 +400,16 @@ function applyTargets() {
   }
 }
 
+function syncModeButtons() {
+  for (const [m, b] of Object.entries(modeButtons)) b.setAttribute("aria-pressed", String(m === state.mode));
+  app.dataset.mode = state.mode;
+}
+
 function setMode(mode: Mode) {
   if (mode === state.mode) return;
   if (!confirmDiscard("入力した内容は消えます。モードを切り替えますか？")) return;
   state.mode = mode;
-  for (const [m, b] of Object.entries(modeButtons)) b.setAttribute("aria-pressed", String(m === mode));
-  app.dataset.mode = mode;
+  syncModeButtons();
   applyTargets();
 }
 
@@ -441,6 +476,7 @@ function renderStatus() {
 }
 
 function render() {
+  persist();
   app.dataset.phase = state.phase;
   app.dataset.input = state.inputMode;
   app.dataset.mode = state.mode;
@@ -481,6 +517,49 @@ function render() {
   renderStatus();
 }
 
-modeButtons.full.setAttribute("aria-pressed", "true");
-modeButtons.focus.setAttribute("aria-pressed", "false");
-render();
+// ---- 入力途中の内容の保存・復元 ----
+
+let persistTimer: number | undefined;
+
+/** 入力途中の内容をブラウザに保存する（連続した変更はまとめて1回で保存） */
+function persist() {
+  window.clearTimeout(persistTimer);
+  persistTimer = window.setTimeout(() => {
+    saveSession({
+      version: 1,
+      mode: state.mode,
+      selection: [...state.selection],
+      phase: state.phase,
+      symbols: [...state.symbols],
+      names: [...state.names],
+      recordId: state.recordId,
+    });
+  }, 200);
+}
+
+/** 前回の続きを復元する */
+function restore() {
+  const saved = loadSession();
+  if (saved) {
+    state.mode = saved.mode;
+    state.selection = new Set(saved.selection);
+  }
+  syncModeButtons();
+  applyTargets();
+  if (!saved) return;
+
+  const targets = new Set(state.targets);
+  for (const [z, v] of saved.symbols) if (targets.has(z)) setSymbol(z, v);
+  for (const [z, v] of saved.names) {
+    if (!targets.has(z)) continue;
+    state.names.set(z, v);
+    cells.get(z)!.nameInput.value = v;
+  }
+  state.recordId = saved.recordId;
+  if (saved.phase !== "symbol") showSymbolResults();
+  if (saved.phase === "nameResult") showNameResults();
+  state.phase = saved.phase;
+  render();
+}
+
+restore();

@@ -515,3 +515,103 @@ body {
   color: var(--text);
   font-size: 0.8rem;
 }
+
+/* ---- 履歴 ---- */
+
+.history {
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.history[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.history::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+
+.history-head,
+.history-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+}
+
+.history-head {
+  border-bottom: 1px solid var(--border);
+}
+
+.history-foot {
+  border-top: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.history h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.history-body {
+  overflow: auto;
+  padding: 0.5rem 1rem;
+}
+
+.history table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.history th,
+.history td {
+  padding: 0.45rem 0.4rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.history th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.history .num {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.history .nowrap {
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+/* スマホではヘッダーのボタンを詰める */
+@media (max-width: 30rem) {
+  .header {
+    padding: 0.6rem 0.75rem;
+  }
+
+  .header-right {
+    gap: 0.4rem;
+  }
+
+  .header .button {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .segmented-item {
+    padding: 0.35rem 0.6rem;
+  }
+}
