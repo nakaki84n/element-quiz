@@ -241,7 +241,6 @@ body {
    自分の答えの前に ○（正解）✕（不正解）－（未入力）を付け、
    不正解・未入力のときは下の行に「→ 正解」を出す。 */
 
-.cell-mark,
 .cell-symbol-result,
 .cell-name-result,
 .cell-answer {
@@ -263,9 +262,7 @@ body {
 [data-phase="symbolResult"] .cell-symbol-result,
 [data-phase="symbolResult"] .cell-answer,
 [data-phase="name"] .cell-symbol-result,
-[data-phase="name"] .cell-mark,
 [data-phase="nameResult"] .cell-symbol-result,
-[data-phase="nameResult"] .cell-mark,
 [data-phase="nameResult"] .cell-name-result,
 [data-phase="nameResult"] .cell-answer {
   display: block;
@@ -339,19 +336,6 @@ body {
   margin-right: 0.2em;
   color: var(--correct);
   font-weight: 800;
-}
-
-/* 名前ターン以降、記号ターンの結果は右上の小さなマークで示す */
-.cell-mark {
-  position: absolute;
-  top: 0.15rem;
-  right: 0.3rem;
-  font-size: 0.7rem;
-  line-height: 1;
-}
-
-.cell-mark .res-mark {
-  margin: 0;
 }
 
 /* マス全体の色: 記号ターンの結果画面では記号の結果、名前の結果画面では名前の結果 */
@@ -700,8 +684,7 @@ body {
 }
 
 /* 名前ターン中は記号ターンの結果を隠す */
-[data-show-symbols-in-name="false"][data-phase="name"] .cell .cell-symbol-result,
-[data-show-symbols-in-name="false"][data-phase="name"] .cell .cell-mark {
+[data-show-symbols-in-name="false"][data-phase="name"] .cell .cell-symbol-result {
   visibility: hidden;
 }
 

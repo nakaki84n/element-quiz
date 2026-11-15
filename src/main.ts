@@ -385,7 +385,6 @@ function paintResults() {
     const sym = state.symbolResults.get(z);
     const name = state.nameResults.get(z);
     const e = refs.element;
-    refs.mark.replaceChildren();
     refs.symbolResult.replaceChildren();
     refs.nameResult.replaceChildren();
     refs.answer.replaceChildren();
@@ -398,8 +397,7 @@ function paintResults() {
       fillAnswer(refs.answer, sym, e.symbol);
       continue;
     }
-    // 名前ターン以降: 記号欄には正しい記号を出し、記号ターンの結果は右上のマークで示す
-    refs.mark.append(markSpan(sym));
+    // 名前ターン以降: 記号欄には正しい記号だけを出す
     refs.symbolResult.textContent = e.symbol;
     if (state.phase === "nameResult" && name) {
       const mine = getName(z).trim();

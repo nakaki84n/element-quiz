@@ -5,7 +5,7 @@ const SETTINGS_KEY = "element-quiz.settings.v1";
 export interface Settings {
   /** マスに原子番号を表示する */
   showAtomicNumber: boolean;
-  /** 名前ターン中に記号ターンの結果を表示する */
+  /** 名前ターン中に正しい記号を表示する */
   showSymbolsInNameTurn: boolean;
 }
 
@@ -51,7 +51,7 @@ export function createSettings(app: HTMLElement): { button: HTMLButtonElement; p
 
   const options: [keyof Settings, string][] = [
     ["showAtomicNumber", "原子番号を表示する"],
-    ["showSymbolsInNameTurn", "名前ターン中に記号の結果を表示する"],
+    ["showSymbolsInNameTurn", "名前ターン中に記号を表示する"],
   ];
   for (const [key, label] of options) {
     const row = document.createElement("label");

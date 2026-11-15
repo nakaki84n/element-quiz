@@ -17,8 +17,6 @@ export interface CellRefs {
   symbolInput: HTMLInputElement;
   /** 元素名の入力欄 */
   nameInput: HTMLInputElement;
-  /** 名前ターン以降に、記号ターンの結果（○✕－）を出す右上のマーク */
-  mark: HTMLDivElement;
   /** 答え合わせ後の記号欄（記号ターン結果では「○ Be」、名前ターン以降は正しい記号） */
   symbolResult: HTMLDivElement;
   /** 名前の答え合わせ後の名前欄（「✕ ベリリム」など） */
@@ -79,15 +77,14 @@ function elementCell(e: Element): CellRefs {
   nameInput.lang = "ja";
   nameInput.disabled = true;
 
-  const mark = div("cell-mark");
   const symbolResult = div("cell-symbol-result");
   const nameResult = div("cell-name-result");
   const answer = div("cell-answer");
 
-  cell.append(div("cell-z", String(e.z)), mark, symbolKey, symbolInput, symbolResult, nameInput, nameResult, answer);
+  cell.append(div("cell-z", String(e.z)), symbolKey, symbolInput, symbolResult, nameInput, nameResult, answer);
   const { row, col } = cellPosition(e);
   place(cell, row, col);
-  return { element: e, cell, symbolKey, symbolInput, nameInput, mark, symbolResult, nameResult, answer, row, col };
+  return { element: e, cell, symbolKey, symbolInput, nameInput, symbolResult, nameResult, answer, row, col };
 }
 
 export function buildTable(): { root: HTMLDivElement; cells: Map<number, CellRefs> } {
