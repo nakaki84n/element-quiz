@@ -3,6 +3,7 @@ import { ELEMENTS } from "./elements";
 import { isCorrectName } from "./name";
 import { GROUP_KEYS, inRange, PERIOD_KEYS, rangeLabel, type RangeKey, selectionLabel, SERIES_KEYS } from "./range";
 import { renderHistory } from "./history";
+import { createSettings } from "./settings";
 import { loadSession, recordNameTurn, recordSymbolTurn, saveSession } from "./storage";
 import { letterFromKey, normalizeSymbol, SYMBOL_MAX } from "./symbol";
 import { buildTable, type CellRefs } from "./table";
@@ -64,7 +65,8 @@ modeSwitch.append(modeButtons.full, modeButtons.focus);
 
 const headerRight = document.createElement("div");
 headerRight.className = "header-right";
-headerRight.append(modeSwitch, historyButton, resetButton);
+const settings = createSettings(app);
+headerRight.append(modeSwitch, settings.button, historyButton, resetButton, settings.panel);
 header.append(title, headerRight);
 
 // 集中モードの範囲選択
@@ -396,7 +398,10 @@ function applyTargets() {
   const first = state.targets[0];
   if (first !== undefined) {
     const { cell } = cells.get(first)!;
-    scroller.scrollTo({ left: Math.max(0, cell.offsetLeft - scroller.clientWidth / 2 + cell.offsetWidth / 2) });
+    const c = cell.getBoundingClientRect();
+    const box = scroller.getBoundingClientRect();
+    const center = c.left - box.left + scroller.scrollLeft + c.width / 2;
+    scroller.scrollTo({ left: Math.max(0, center - scroller.clientWidth / 2) });
   }
 }
 
@@ -516,6 +521,24 @@ function render() {
   }
   renderStatus();
 }
+
+// ---- 画面幅に合わせた表の縮小 ----
+// PC やタブレットでは、表が画面に収まるように全体を縮小する（下限 70%）。
+// スマホでは縮小すると文字が小さすぎるので、等倍のまま横スクロールで使う。
+
+const MIN_ZOOM = 0.7;
+const PHONE_WIDTH = 700;
+
+function fitTable() {
+  table.style.zoom = "1";
+  const available = scroller.clientWidth - 32; // 左右の余白 (1rem × 2)
+  const natural = table.offsetWidth;
+  const zoom = window.innerWidth < PHONE_WIDTH ? 1 : Math.min(1, Math.max(MIN_ZOOM, available / natural));
+  table.style.zoom = String(zoom);
+}
+
+new ResizeObserver(fitTable).observe(scroller);
+fitTable();
 
 // ---- 入力途中の内容の保存・復元 ----
 
