@@ -2,6 +2,7 @@ import "./style.css";
 import { ELEMENTS } from "./elements";
 import { isCorrectName } from "./name";
 import { GROUP_KEYS, inRange, PERIOD_KEYS, rangeLabel, type RangeKey, selectionLabel, SERIES_KEYS } from "./range";
+import { createHeatmap } from "./heatmap";
 import { renderHistory } from "./history";
 import { createSettings } from "./settings";
 import { loadSession, recordNameTurn, recordSymbolTurn, saveSession } from "./storage";
@@ -66,7 +67,8 @@ modeSwitch.append(modeButtons.full, modeButtons.focus);
 const headerRight = document.createElement("div");
 headerRight.className = "header-right";
 const settings = createSettings(app);
-headerRight.append(modeSwitch, settings.button, historyButton, resetButton, settings.panel);
+const mapButton = button("苦手マップ", "button button-ghost");
+headerRight.append(modeSwitch, settings.button, mapButton, historyButton, resetButton, settings.panel);
 header.append(title, headerRight);
 
 // 集中モードの範囲選択
@@ -112,6 +114,16 @@ actions.className = "actions";
 footer.append(status, actions);
 
 app.append(header, rangePanel, scroller, footer);
+
+// 苦手マップ（開いている間は入力できない。閉じれば元の続きに戻る）
+const heatmap = createHeatmap(app, cells);
+footer.append(heatmap.bar);
+mapButton.addEventListener("click", () => {
+  if (heatmap.isOpen()) heatmap.close();
+  else heatmap.open();
+  mapButton.setAttribute("aria-pressed", String(heatmap.isOpen()));
+});
+heatmap.bar.querySelector(".button-primary")!.addEventListener("click", () => mapButton.setAttribute("aria-pressed", "false"));
 
 function button(label: string, className = "button"): HTMLButtonElement {
   const b = document.createElement("button");
@@ -266,6 +278,7 @@ for (const [z, refs] of cells) {
   });
   refs.nameInput.addEventListener("keydown", (e) => onTextKeydown(e, z));
   refs.cell.addEventListener("click", () => {
+    if (app.dataset.view === "map") return;
     if (state.phase !== "symbol" && state.phase !== "name") return;
     if (!state.targets.includes(z)) return;
     const field = activeField(z);
