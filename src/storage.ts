@@ -5,6 +5,9 @@ const RECORDS_KEY = "element-quiz.records.v1";
 const SESSION_KEY = "element-quiz.session.v1";
 const HISTORY_LIMIT = 500;
 
+/** 名前ターンの言語 */
+export type NameLang = "ja" | "en";
+
 export interface Score {
   correct: number;
   total: number;
@@ -20,6 +23,8 @@ export interface HistoryEntry {
   symbol: Score;
   /** 名前ターンまで進まなかった回は null */
   name: Score | null;
+  /** 名前ターンの言語（古い記録には無い。無ければ日本語） */
+  nameLang?: NameLang;
 }
 
 /** 元素ごとの累計 */
@@ -28,6 +33,9 @@ export interface ElementStat {
   symbolTry: number;
   nameOk: number;
   nameTry: number;
+  /** 英語名（古い記録には無い） */
+  nameEnOk?: number;
+  nameEnTry?: number;
 }
 
 export interface Records {
@@ -80,14 +88,22 @@ export function recordSymbolTurn(scope: string, results: Map<number, boolean>): 
 }
 
 /** 名前ターンの答え合わせを、同じ回の記録に追加する */
-export function recordNameTurn(id: string, results: Map<number, boolean>) {
+export function recordNameTurn(id: string, results: Map<number, boolean>, lang: NameLang) {
   const r = loadRecords();
   const entry = r.history.find((h) => h.id === id);
-  if (entry) entry.name = { correct: [...results.values()].filter(Boolean).length, total: results.size };
+  if (entry) {
+    entry.name = { correct: [...results.values()].filter(Boolean).length, total: results.size };
+    entry.nameLang = lang;
+  }
   for (const [z, ok] of results) {
     const s = (r.perElement[z] ??= { symbolOk: 0, symbolTry: 0, nameOk: 0, nameTry: 0 });
-    s.nameTry++;
-    if (ok) s.nameOk++;
+    if (lang === "en") {
+      s.nameEnTry = (s.nameEnTry ?? 0) + 1;
+      if (ok) s.nameEnOk = (s.nameEnOk ?? 0) + 1;
+    } else {
+      s.nameTry++;
+      if (ok) s.nameOk++;
+    }
   }
   saveRecords(r);
 }
@@ -111,6 +127,8 @@ export interface SavedSession {
   names: [number, string][];
   /** この回の記録の id（答え合わせ前は null） */
   recordId: string | null;
+  /** この回の名前ターンの言語（古い保存データには無い） */
+  nameLang?: NameLang;
 }
 
 export function loadSession(): SavedSession | null {

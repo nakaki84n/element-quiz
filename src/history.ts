@@ -77,7 +77,15 @@ export function renderHistory() {
       date.className = "nowrap";
       const scope = document.createElement("td");
       scope.textContent = h.scope;
-      tr.append(date, scope, scoreCell(h.symbol), scoreCell(h.name));
+      const nameCell = scoreCell(h.name);
+      // 英語名ターンの回は「英」の印を付ける
+      if (h.name && h.nameLang === "en") {
+        const tag = document.createElement("span");
+        tag.className = "lang-tag";
+        tag.textContent = "英";
+        nameCell.prepend(tag);
+      }
+      tr.append(date, scope, scoreCell(h.symbol), nameCell);
       tbody.append(tr);
     }
     tableEl.append(thead, tbody);

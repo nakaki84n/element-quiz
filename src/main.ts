@@ -1,11 +1,11 @@
 import "./style.css";
 import { ELEMENTS } from "./elements";
-import { isCorrectName } from "./name";
+import { formatNameEn, isCorrectName, isCorrectNameEn, NAME_EN_MAX } from "./name";
 import { GROUP_KEYS, GROUP_NAMES, inRange, PERIOD_KEYS, rangeLabel, type RangeKey, selectionLabel, SERIES_KEYS } from "./range";
 import { createHeatmap } from "./heatmap";
 import { renderHistory } from "./history";
 import { createSettings } from "./settings";
-import { loadSession, recordNameTurn, recordSymbolTurn, saveSession } from "./storage";
+import { loadSession, type NameLang, recordNameTurn, recordSymbolTurn, saveSession } from "./storage";
 import { letterFromKey, normalizeSymbol, SYMBOL_MAX } from "./symbol";
 import { buildTable, type CellRefs, lengthClass } from "./table";
 
@@ -29,6 +29,8 @@ const state = {
   nameResults: new Map<number, Result>(),
   /** この回の記録の id（記号ターンの答え合わせで決まる） */
   recordId: null as string | null,
+  /** この回の名前ターンの言語（名前ターンを始めるときに設定から決める） */
+  nameLang: "ja" as NameLang,
   inputMode: (window.matchMedia("(pointer: coarse)").matches ? "touch" : "key") as InputMode,
 };
 
@@ -66,7 +68,17 @@ modeSwitch.append(modeButtons.full, modeButtons.focus);
 
 const headerRight = document.createElement("div");
 headerRight.className = "header-right";
-const settings = createSettings(app);
+const settings = createSettings(app, (lang) => {
+  // 名前ターンでまだ何も入力していなければ、すぐ切り替える
+  if (state.phase === "name" && !state.targets.some((z) => getName(z).trim())) {
+    state.nameLang = lang;
+    clearNames();
+    render();
+    focusField(state.targets[0]);
+  } else if (state.phase === "symbolResult") {
+    render(); // 「名前ターンへ／英語名ターンへ」ボタンの表示を変える
+  }
+});
 const mapButton = button("苦手マップ", "button button-ghost");
 headerRight.append(modeSwitch, settings.button, mapButton, historyButton, resetButton, settings.panel);
 header.append(title, headerRight);
@@ -180,10 +192,31 @@ function getName(z: number): string {
   return state.names.get(z) ?? "";
 }
 
+function setName(z: number, value: string) {
+  const v = state.nameLang === "en" ? formatNameEn(value) : value;
+  if (v) state.names.set(z, v);
+  else state.names.delete(z);
+  const refs = cells.get(z)!;
+  refs.nameKey.textContent = v;
+  if (refs.nameInput.value !== v) refs.nameInput.value = v;
+  renderStatus();
+  persist();
+}
+
+function clearNames() {
+  state.names.clear();
+  for (const refs of cells.values()) {
+    refs.nameInput.value = "";
+    refs.nameKey.textContent = "";
+  }
+}
+
 /** いまのターンで入力する欄 */
 function activeField(z: number): HTMLElement {
   const refs = cells.get(z)!;
-  if (state.phase === "name") return refs.nameInput;
+  if (state.phase === "name") {
+    return state.nameLang === "en" && state.inputMode === "key" ? refs.nameKey : refs.nameInput;
+  }
   return state.inputMode === "touch" ? refs.symbolInput : refs.symbolKey;
 }
 
@@ -258,6 +291,28 @@ function onSymbolKeydown(e: KeyboardEvent, z: number) {
   }
 }
 
+/** 英語名の欄（キーボード用）: IME を通らないので常に英字が入る */
+function onNameKeydown(e: KeyboardEvent, z: number) {
+  if (state.phase !== "name") return;
+  if (handleNavKey(e, z, { arrowsLeftRight: true })) {
+    e.preventDefault();
+    return;
+  }
+  const current = getName(z);
+  const letter = letterFromKey(e);
+  if (letter) {
+    e.preventDefault();
+    if (current.length < NAME_EN_MAX) setName(z, current + letter);
+  } else if (e.key === "Backspace") {
+    e.preventDefault();
+    if (current) setName(z, current.slice(0, -1));
+    else moveBy(z, -1);
+  } else if (e.key === "Delete") {
+    e.preventDefault();
+    setName(z, "");
+  }
+}
+
 /** 記号欄（タッチ用）: <input> の内容を整形する */
 function onSymbolInput(e: Event, z: number) {
   if ((e as InputEvent).isComposing) return;
@@ -287,11 +342,15 @@ for (const [z, refs] of cells) {
   refs.symbolInput.addEventListener("input", (e) => onSymbolInput(e, z));
   refs.symbolInput.addEventListener("compositionend", (e) => onSymbolInput(e, z));
   refs.symbolInput.addEventListener("keydown", (e) => onTextKeydown(e, z));
-  refs.nameInput.addEventListener("input", () => {
-    state.names.set(z, refs.nameInput.value);
-    renderStatus();
-    persist();
+  refs.nameInput.addEventListener("input", (e) => {
+    // 英語名は変換中に整形しない（変換が終わってから英字だけにする）
+    if (state.nameLang === "en" && (e as InputEvent).isComposing) return;
+    setName(z, refs.nameInput.value);
   });
+  refs.nameInput.addEventListener("compositionend", () => {
+    if (state.nameLang === "en") setName(z, refs.nameInput.value);
+  });
+  refs.nameKey.addEventListener("keydown", (e) => onNameKeydown(e, z));
   refs.nameInput.addEventListener("keydown", (e) => onTextKeydown(e, z));
   refs.cell.addEventListener("click", () => {
     if (app.dataset.view === "map") return;
@@ -337,6 +396,8 @@ function showSymbolResults() {
 }
 
 function startNameTurn() {
+  state.nameLang = settings.nameLang();
+  clearNames();
   state.phase = "name";
   render();
   scroller.scrollTo({ left: 0 });
@@ -348,7 +409,11 @@ function gradeNames() {
   showNameResults();
   state.phase = "nameResult";
   if (state.recordId) {
-    recordNameTurn(state.recordId, new Map(state.targets.map((z) => [z, state.nameResults.get(z) === "correct"])));
+    recordNameTurn(
+      state.recordId,
+      new Map(state.targets.map((z) => [z, state.nameResults.get(z) === "correct"])),
+      state.nameLang,
+    );
   }
   render();
 }
@@ -358,7 +423,8 @@ function showNameResults() {
   for (const z of state.targets) {
     const refs = cells.get(z)!;
     const answer = getName(z).trim();
-    const result: Result = !answer ? "blank" : isCorrectName(answer, refs.element) ? "correct" : "wrong";
+    const correct = state.nameLang === "en" ? isCorrectNameEn(answer, refs.element) : isCorrectName(answer, refs.element);
+    const result: Result = !answer ? "blank" : correct ? "correct" : "wrong";
     state.nameResults.set(z, result);
     refs.cell.classList.add(`name-${result}`);
   }
@@ -389,16 +455,24 @@ function fillResult(el: HTMLElement, result: Result, mine: string) {
   el.replaceChildren(markSpan(result), mine);
 }
 
+/** 「→」の矢印。文字だとフォントによって先端が潰れるので、図形で描く */
+function arrowIcon(): HTMLSpanElement {
+  const span = document.createElement("span");
+  span.className = "res-arrow";
+  span.setAttribute("aria-hidden", "true");
+  span.innerHTML =
+    '<svg viewBox="0 0 12 10" fill="none"><path d="M1 5h6.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+    '<path d="M6 1.2 11 5l-5 3.8z" fill="currentColor"/></svg>';
+  return span;
+}
+
 /** 「→ Be」のように正解を出す（正解したマスでは空にする） */
 function fillAnswer(el: HTMLElement, result: Result, correct: string) {
   if (result === "correct") {
     el.replaceChildren();
     return;
   }
-  const arrow = document.createElement("span");
-  arrow.className = "res-arrow";
-  arrow.textContent = "→";
-  el.replaceChildren(arrow, correct);
+  el.replaceChildren(arrowIcon(), correct);
 }
 
 /** いまのターンに合わせて、各マスの結果表示を作り直す */
@@ -424,10 +498,13 @@ function paintResults() {
     refs.symbolResult.textContent = e.symbol;
     if (state.phase === "nameResult" && name) {
       const mine = getName(z).trim();
+      const correct = state.nameLang === "en" ? e.nameEn : e.nameJa;
+      // 英字は仮名より幅が狭いので、文字数を少なめに数えて文字サイズを決める
+      const width = (s: string) => (state.nameLang === "en" ? Math.ceil(s.length * 0.6) : s.length) + 2;
       fillResult(refs.nameResult, name, mine);
-      refs.nameResult.classList.add(...lengthClass(mine.length + 2).split(" ").filter(Boolean));
-      fillAnswer(refs.answer, name, e.nameJa);
-      refs.answer.classList.add(...lengthClass(e.nameJa.length + 2).split(" ").filter(Boolean));
+      refs.nameResult.classList.add(...lengthClass(width(mine)).split(" ").filter(Boolean));
+      fillAnswer(refs.answer, name, correct);
+      refs.answer.classList.add(...lengthClass(width(correct)).split(" ").filter(Boolean));
     }
   }
 }
@@ -435,12 +512,11 @@ function paintResults() {
 function reset(focusFirst = true) {
   state.phase = "symbol";
   state.recordId = null;
-  state.names.clear();
+  clearNames();
   state.symbolResults.clear();
   state.nameResults.clear();
   for (const [z, refs] of cells) {
     setSymbol(z, "");
-    refs.nameInput.value = "";
     refs.cell.classList.remove(
       ...["correct", "wrong", "blank"].flatMap((r) => [`sym-${r}`, `name-${r}`]),
     );
@@ -477,6 +553,7 @@ function applyTargets() {
     const off = !targets.has(z);
     refs.cell.classList.toggle("is-off", off);
     refs.symbolKey.tabIndex = off ? -1 : 0;
+    refs.nameKey.tabIndex = off ? -1 : 0;
     refs.symbolInput.disabled = off;
   }
   for (const label of table.querySelectorAll<HTMLElement>("[data-range]")) {
@@ -548,6 +625,11 @@ function scopeTag(): string {
   return state.mode === "focus" ? `<span class="scope">${selectionLabel(state.selection)}</span>` : "";
 }
 
+/** 名前ターンの呼び名（日本語なら「名前」、英語なら「英語名」） */
+function nameLabel(): string {
+  return state.nameLang === "en" ? "英語名" : "名前";
+}
+
 function score(results: Map<number, Result>): string {
   const total = state.targets.length;
   const correct = state.targets.filter((z) => results.get(z) === "correct").length;
@@ -568,14 +650,14 @@ function renderStatus() {
       break;
     case "name": {
       const filled = state.targets.filter((z) => getName(z).trim()).length;
-      status.innerHTML = `${scopeTag()}<span class="phase">名前ターン</span>入力 ${filled} / ${total}`;
+      status.innerHTML = `${scopeTag()}<span class="phase">${nameLabel()}ターン</span>入力 ${filled} / ${total}`;
       break;
     }
     case "nameResult":
       status.innerHTML =
         `${scopeTag()}<span class="phase">結果</span>` +
         `<span class="score">記号 ${score(state.symbolResults)}</span>` +
-        `<span class="score">名前 ${score(state.nameResults)}</span>`;
+        `<span class="score">${nameLabel()} ${score(state.nameResults)}</span>`;
       break;
   }
 }
@@ -586,8 +668,13 @@ function render() {
   app.dataset.phase = state.phase;
   app.dataset.input = state.inputMode;
   app.dataset.mode = state.mode;
+  app.dataset.nameLang = state.nameLang;
   const targets = new Set(state.targets);
   for (const [z, refs] of cells) {
+    // 英語名は英字キーボードが出やすい type="url"、日本語名は普通の文字入力
+    const en = state.nameLang === "en" && (state.phase === "name" || state.phase === "nameResult");
+    refs.nameInput.type = en ? "url" : "text";
+    refs.nameInput.lang = en ? "en" : "ja";
     refs.symbolInput.readOnly = state.phase !== "symbol";
     refs.nameInput.disabled = !targets.has(z) || state.phase === "symbol" || state.phase === "symbolResult";
     refs.nameInput.readOnly = state.phase !== "name";
@@ -610,7 +697,7 @@ function render() {
       add("答え合わせ", gradeSymbols);
       break;
     case "symbolResult":
-      add("名前ターンへ", startNameTurn);
+      add(settings.nameLang() === "en" ? "英語名ターンへ" : "名前ターンへ", startNameTurn);
       add("もう一度", reset, false);
       break;
     case "name":
@@ -657,6 +744,7 @@ function persist() {
       symbols: [...state.symbols],
       names: [...state.names],
       recordId: state.recordId,
+      nameLang: state.nameLang,
     });
   }, 200);
 }
@@ -678,8 +766,10 @@ function restore() {
     if (!targets.has(z)) continue;
     state.names.set(z, v);
     cells.get(z)!.nameInput.value = v;
+    cells.get(z)!.nameKey.textContent = v;
   }
   state.recordId = saved.recordId;
+  state.nameLang = saved.nameLang ?? "ja";
   if (saved.phase !== "symbol") showSymbolResults();
   if (saved.phase === "nameResult") showNameResults();
   state.phase = saved.phase;

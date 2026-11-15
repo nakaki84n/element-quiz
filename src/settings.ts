@@ -1,4 +1,6 @@
-// 表示設定（原子番号の表示、名前ターン中の記号の表示）
+// 表示設定（原子番号の表示、名前ターン中の記号の表示、名前ターンの言語）
+
+import type { NameLang } from "./storage";
 
 const SETTINGS_KEY = "element-quiz.settings.v1";
 
@@ -7,14 +9,18 @@ export interface Settings {
   showAtomicNumber: boolean;
   /** 名前ターン中に正しい記号を表示する */
   showSymbolsInNameTurn: boolean;
+  /** 名前ターンで答える言語 */
+  nameLang: NameLang;
 }
 
-const DEFAULTS: Settings = { showAtomicNumber: true, showSymbolsInNameTurn: true };
+const DEFAULTS: Settings = { showAtomicNumber: true, showSymbolsInNameTurn: true, nameLang: "ja" };
 
 function load(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return { ...DEFAULTS, ...(raw ? (JSON.parse(raw) as Partial<Settings>) : {}) };
+    const s = { ...DEFAULTS, ...(raw ? (JSON.parse(raw) as Partial<Settings>) : {}) };
+    if (s.nameLang !== "ja" && s.nameLang !== "en") s.nameLang = "ja";
+    return s;
   } catch {
     return { ...DEFAULTS };
   }
@@ -34,8 +40,14 @@ function apply(app: HTMLElement, s: Settings) {
   app.dataset.showSymbolsInName = String(s.showSymbolsInNameTurn);
 }
 
-/** 設定ボタンと設定パネルを作る */
-export function createSettings(app: HTMLElement): { button: HTMLButtonElement; panel: HTMLDivElement } {
+/**
+ * 設定ボタンと設定パネルを作る。
+ * onNameLangChange は名前ターンの言語が変わったときに呼ばれる。
+ */
+export function createSettings(
+  app: HTMLElement,
+  onNameLangChange: (lang: NameLang) => void,
+): { button: HTMLButtonElement; panel: HTMLDivElement; nameLang: () => NameLang } {
   const settings = load();
   apply(app, settings);
 
@@ -49,7 +61,45 @@ export function createSettings(app: HTMLElement): { button: HTMLButtonElement; p
   panel.className = "settings-panel";
   panel.hidden = true;
 
-  const options: [keyof Settings, string][] = [
+  // 名前ターンの言語
+  const langRow = document.createElement("div");
+  langRow.className = "settings-row settings-lang";
+  const langLabel = document.createElement("span");
+  langLabel.textContent = "名前ターンの言語";
+  const langSwitch = document.createElement("div");
+  langSwitch.className = "segmented";
+  langSwitch.setAttribute("role", "group");
+  langSwitch.setAttribute("aria-label", "名前ターンの言語");
+  const langButtons = new Map<NameLang, HTMLButtonElement>();
+  for (const [lang, label] of [
+    ["ja", "日本語"],
+    ["en", "英語"],
+  ] as const) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "segmented-item";
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      if (settings.nameLang === lang) return;
+      settings.nameLang = lang;
+      save(settings);
+      syncLang();
+      onNameLangChange(lang);
+    });
+    langButtons.set(lang, b);
+    langSwitch.append(b);
+  }
+  const syncLang = () => {
+    for (const [lang, b] of langButtons) b.setAttribute("aria-pressed", String(lang === settings.nameLang));
+  };
+  syncLang();
+  langRow.append(langLabel, langSwitch);
+  const langNote = document.createElement("div");
+  langNote.className = "settings-note";
+  langNote.textContent = "名前ターンの途中で変えた場合は、次の回から切り替わります（まだ何も入力していなければすぐ切り替わります）";
+  panel.append(langRow, langNote);
+
+  const options: ["showAtomicNumber" | "showSymbolsInNameTurn", string][] = [
     ["showAtomicNumber", "原子番号を表示する"],
     ["showSymbolsInNameTurn", "名前ターン中に記号を表示する"],
   ];
@@ -84,5 +134,5 @@ export function createSettings(app: HTMLElement): { button: HTMLButtonElement; p
     if (e.key === "Escape" && !panel.hidden) setOpen(false);
   });
 
-  return { button, panel };
+  return { button, panel, nameLang: () => settings.nameLang };
 }

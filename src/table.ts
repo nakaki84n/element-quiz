@@ -15,8 +15,10 @@ export interface CellRefs {
   symbolKey: HTMLDivElement;
   /** 記号欄（タッチ用）: 画面キーボードを出すための <input> */
   symbolInput: HTMLInputElement;
-  /** 元素名の入力欄 */
+  /** 元素名の入力欄（日本語名、およびタッチ操作での英語名） */
   nameInput: HTMLInputElement;
+  /** 英語名の入力欄（キーボード用）: 記号欄と同じく IME を通さずにキーを受け取る */
+  nameKey: HTMLDivElement;
   /** 答え合わせ後の記号欄（記号ターン結果では「○ Be」、名前ターン以降は正しい記号） */
   symbolResult: HTMLDivElement;
   /** 名前の答え合わせ後の名前欄（「✕ ベリリム」など） */
@@ -74,6 +76,10 @@ function elementCell(e: Element): CellRefs {
   const symbolInput = textInput("cell-symbol cell-symbol-input", `${e.z}番の元素記号`, "url");
 
   const nameInput = textInput("cell-name", `${e.z}番の元素名`, "text");
+  const nameKey = div("cell-name cell-name-key");
+  nameKey.tabIndex = 0;
+  nameKey.setAttribute("role", "textbox");
+  nameKey.setAttribute("aria-label", `${e.z}番の元素の英語名`);
   nameInput.lang = "ja";
   nameInput.disabled = true;
 
@@ -81,10 +87,10 @@ function elementCell(e: Element): CellRefs {
   const nameResult = div("cell-name-result");
   const answer = div("cell-answer");
 
-  cell.append(div("cell-z", String(e.z)), symbolKey, symbolInput, symbolResult, nameInput, nameResult, answer);
+  cell.append(div("cell-z", String(e.z)), symbolKey, symbolInput, symbolResult, nameInput, nameKey, nameResult, answer);
   const { row, col } = cellPosition(e);
   place(cell, row, col);
-  return { element: e, cell, symbolKey, symbolInput, nameInput, symbolResult, nameResult, answer, row, col };
+  return { element: e, cell, symbolKey, symbolInput, nameInput, nameKey, symbolResult, nameResult, answer, row, col };
 }
 
 export function buildTable(): { root: HTMLDivElement; cells: Map<number, CellRefs> } {

@@ -15,6 +15,10 @@ export interface Element {
   reading?: string;
   /** 文科省の表記以外に正解とする漢字表記（錫・珪素など、その元素を表す漢字として定着しているもの） */
   kanji?: readonly string[];
+  /** 英語名（IUPAC の表記） */
+  nameEn: string;
+  /** 英語名の別のつづり（アメリカ式など） */
+  nameEnAlt?: readonly string[];
   /** 周期 1–7 */
   period: number;
   /** 族 1–18。ランタノイド・アクチノイドは null */
@@ -184,8 +188,44 @@ const KANJI: Readonly<Record<string, readonly string[]>> = {
   Bi: ["蒼鉛"],
 };
 
+/** 英語名（IUPAC の表記、原子番号順） */
+const EN: readonly string[] = [
+  "Hydrogen", "Helium", "Lithium", "Beryllium", "Boron", "Carbon", "Nitrogen", "Oxygen",
+  "Fluorine", "Neon", "Sodium", "Magnesium", "Aluminium", "Silicon", "Phosphorus", "Sulfur",
+  "Chlorine", "Argon", "Potassium", "Calcium", "Scandium", "Titanium", "Vanadium", "Chromium",
+  "Manganese", "Iron", "Cobalt", "Nickel", "Copper", "Zinc", "Gallium", "Germanium",
+  "Arsenic", "Selenium", "Bromine", "Krypton", "Rubidium", "Strontium", "Yttrium", "Zirconium",
+  "Niobium", "Molybdenum", "Technetium", "Ruthenium", "Rhodium", "Palladium", "Silver", "Cadmium",
+  "Indium", "Tin", "Antimony", "Tellurium", "Iodine", "Xenon", "Caesium", "Barium",
+  "Lanthanum", "Cerium", "Praseodymium", "Neodymium", "Promethium", "Samarium", "Europium", "Gadolinium",
+  "Terbium", "Dysprosium", "Holmium", "Erbium", "Thulium", "Ytterbium", "Lutetium", "Hafnium",
+  "Tantalum", "Tungsten", "Rhenium", "Osmium", "Iridium", "Platinum", "Gold", "Mercury",
+  "Thallium", "Lead", "Bismuth", "Polonium", "Astatine", "Radon", "Francium", "Radium",
+  "Actinium", "Thorium", "Protactinium", "Uranium", "Neptunium", "Plutonium", "Americium", "Curium",
+  "Berkelium", "Californium", "Einsteinium", "Fermium", "Mendelevium", "Nobelium", "Lawrencium", "Rutherfordium",
+  "Dubnium", "Seaborgium", "Bohrium", "Hassium", "Meitnerium", "Darmstadtium", "Roentgenium", "Copernicium",
+  "Nihonium", "Flerovium", "Moscovium", "Livermorium", "Tennessine", "Oganesson",
+];
+
+/** 英語名の別のつづり。IUPAC 表記のほかにアメリカ式・イギリス式のつづりも正解にする */
+const EN_ALT: Readonly<Record<string, readonly string[]>> = {
+  Al: ["Aluminum"],
+  S: ["Sulphur"],
+  Cs: ["Cesium"],
+};
+
 export const ELEMENTS: readonly Element[] = RAW.map(([symbol, nameJa, reading], i) => {
   const z = i + 1;
   const kanji = KANJI[symbol];
-  return { z, symbol, nameJa, ...(reading ? { reading } : {}), ...(kanji ? { kanji } : {}), ...position(z) };
+  const nameEnAlt = EN_ALT[symbol];
+  return {
+    z,
+    symbol,
+    nameJa,
+    ...(reading ? { reading } : {}),
+    ...(kanji ? { kanji } : {}),
+    nameEn: EN[i],
+    ...(nameEnAlt ? { nameEnAlt } : {}),
+    ...position(z),
+  };
 });

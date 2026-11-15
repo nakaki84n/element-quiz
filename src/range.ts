@@ -15,7 +15,7 @@ export const SERIES_KEYS: RangeKey[] = ["lanthanoid", "actinoid"];
 export const GROUP_NAMES: Readonly<Record<RangeKey, string>> = {
   g1: "アルカリ金属",
   g2: "アルカリ土類金属",
-  g15: "ニクトゲン",
+  g15: "プニクトゲン",
   g16: "カルコゲン",
   g17: "ハロゲン",
   g18: "貴ガス",

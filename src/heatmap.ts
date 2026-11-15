@@ -3,7 +3,7 @@
 import { loadRecords, type ElementStat } from "./storage";
 import { type CellRefs, lengthClass } from "./table";
 
-type Kind = "symbol" | "name";
+type Kind = "symbol" | "name" | "nameEn";
 
 // 配色: 単色の赤。苦手（正答率が低い）ほど濃く鮮やかな赤になり、
 // 得意な元素は背景になじむ暗いグレーになる。
@@ -32,7 +32,7 @@ export function createHeatmap(app: HTMLElement, cells: Map<number, CellRefs>) {
   let stats: Record<number, ElementStat> = {};
 
   // 各マスに苦手マップ用の表示を追加
-  const mapParts = new Map<number, { stat: HTMLDivElement }>();
+  const mapParts = new Map<number, { name: HTMLDivElement; stat: HTMLDivElement }>();
   for (const [z, refs] of cells) {
     const map = document.createElement("div");
     map.className = "cell-map";
@@ -40,13 +40,12 @@ export function createHeatmap(app: HTMLElement, cells: Map<number, CellRefs>) {
     symbol.className = "cell-map-symbol";
     symbol.textContent = refs.element.symbol;
     const name = document.createElement("div");
-    name.className = `cell-map-name ${lengthClass(refs.element.nameJa.length)}`;
-    name.textContent = refs.element.nameJa;
+
     const stat = document.createElement("div");
     stat.className = "cell-map-stat";
     map.append(symbol, name, stat);
     refs.cell.append(map);
-    mapParts.set(z, { stat });
+    mapParts.set(z, { name, stat });
     refs.cell.addEventListener("mouseenter", () => showDetail(z));
     refs.cell.addEventListener("click", () => showDetail(z));
   }
@@ -61,6 +60,7 @@ export function createHeatmap(app: HTMLElement, cells: Map<number, CellRefs>) {
   for (const [k, label] of [
     ["symbol", "記号"],
     ["name", "名前"],
+    ["nameEn", "英語名"],
   ] as const) {
     const b = document.createElement("button");
     b.type = "button";
@@ -102,7 +102,9 @@ export function createHeatmap(app: HTMLElement, cells: Map<number, CellRefs>) {
 
   function count(s: ElementStat | undefined): { ok: number; n: number } {
     if (!s) return { ok: 0, n: 0 };
-    return kind === "symbol" ? { ok: s.symbolOk, n: s.symbolTry } : { ok: s.nameOk, n: s.nameTry };
+    if (kind === "symbol") return { ok: s.symbolOk, n: s.symbolTry };
+    if (kind === "nameEn") return { ok: s.nameEnOk ?? 0, n: s.nameEnTry ?? 0 };
+    return { ok: s.nameOk, n: s.nameTry };
   }
 
   function showDetail(z: number) {
@@ -113,10 +115,12 @@ export function createHeatmap(app: HTMLElement, cells: Map<number, CellRefs>) {
       n === 0 ? `${label}：未回答` : `${label}：${ok} / ${n}（${percent(ok, n)}）`;
     detail.innerHTML = "";
     const title = document.createElement("strong");
-    title.textContent = `${e.z} ${e.symbol} ${e.nameJa}`;
+    title.textContent = `${e.z} ${e.symbol} ${e.nameJa}（${e.nameEn}）`;
     detail.append(
       title,
-      `　${part("記号", s?.symbolOk ?? 0, s?.symbolTry ?? 0)}　${part("名前", s?.nameOk ?? 0, s?.nameTry ?? 0)}`,
+      `　${part("記号", s?.symbolOk ?? 0, s?.symbolTry ?? 0)}` +
+        `　${part("名前", s?.nameOk ?? 0, s?.nameTry ?? 0)}` +
+        `　${part("英語名", s?.nameEnOk ?? 0, s?.nameEnTry ?? 0)}`,
     );
   }
 
@@ -125,7 +129,12 @@ export function createHeatmap(app: HTMLElement, cells: Map<number, CellRefs>) {
     for (const [k, b] of Object.entries(kindButtons)) b.setAttribute("aria-pressed", String(k === kind));
     for (const [z, refs] of cells) {
       const { ok, n } = count(stats[z]);
-      const { stat } = mapParts.get(z)!;
+      const { name, stat } = mapParts.get(z)!;
+      // 英語名の表示中はマスの名前も英語にする（英字は仮名より幅が狭いので少なめに数える）
+      const en = kind === "nameEn";
+      const text = en ? refs.element.nameEn : refs.element.nameJa;
+      name.textContent = text;
+      name.className = `cell-map-name ${lengthClass(en ? Math.ceil(text.length * 0.6) : text.length)}`;
       const none = n === 0;
       refs.cell.classList.toggle("map-none", none);
       if (none) {
