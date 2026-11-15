@@ -15,11 +15,14 @@ export function normalizeName(raw: string): string {
 
 /**
  * 元素名が正しいか判定する。
- * 文科省の表記そのもの、またはその読み（ひらがな・カタカナ）を正解とする。
- * 例: 水素 / すいそ / スイソ、ケイ素 / けい素 / けいそ / ケイソ
+ * 文科省の表記そのもの、その読み（ひらがな・カタカナ）、
+ * またはその元素を表す別の漢字表記（錫・珪素など）を正解とする。
+ * 例: 水素 / すいそ / スイソ、ケイ素 / けい素 / けいそ / 珪素、スズ / すず / 錫
  */
 export function isCorrectName(answer: string, e: Element): boolean {
   const a = normalizeName(answer);
   if (!a) return false;
-  return a === normalizeName(e.nameJa) || (e.reading !== undefined && a === e.reading);
+  if (a === normalizeName(e.nameJa)) return true;
+  if (e.reading !== undefined && a === e.reading) return true;
+  return (e.kanji ?? []).some((k) => a === normalizeName(k));
 }

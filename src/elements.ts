@@ -13,6 +13,8 @@ export interface Element {
   nameJa: string;
   /** 読み（カタカナ）。nameJa に漢字を含む元素だけ持つ */
   reading?: string;
+  /** 文科省の表記以外に正解とする漢字表記（錫・珪素など、その元素を表す漢字として定着しているもの） */
+  kanji?: readonly string[];
   /** 周期 1–7 */
   period: number;
   /** 族 1–18。ランタノイド・アクチノイドは null */
@@ -163,7 +165,27 @@ function position(z: number): Pick<Element, "period" | "group" | "series"> {
   return p(7, z - 100);
 }
 
+/**
+ * 別の漢字表記。
+ * カタカナ表記の元素のうち漢字名が定着しているもの（錫・燐・砒素など）と、
+ * 旧字体（鐵・亞鉛・硫黃）を入れている。中国語の元素名（鈉・鈾など）は含めない。
+ */
+const KANJI: Readonly<Record<string, readonly string[]>> = {
+  B: ["硼素"],
+  F: ["弗素"],
+  Si: ["珪素", "硅素"],
+  P: ["燐"],
+  S: ["硫黃"],
+  Fe: ["鐵"],
+  Zn: ["亞鉛"],
+  As: ["砒素"],
+  Sn: ["錫"],
+  I: ["沃素"],
+  Bi: ["蒼鉛"],
+};
+
 export const ELEMENTS: readonly Element[] = RAW.map(([symbol, nameJa, reading], i) => {
   const z = i + 1;
-  return { z, symbol, nameJa, ...(reading ? { reading } : {}), ...position(z) };
+  const kanji = KANJI[symbol];
+  return { z, symbol, nameJa, ...(reading ? { reading } : {}), ...(kanji ? { kanji } : {}), ...position(z) };
 });
