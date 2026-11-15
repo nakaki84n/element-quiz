@@ -11,11 +11,16 @@ const F_FIRST = { lanthanoid: 57, actinoid: 89 } as const;
 export interface CellRefs {
   element: Element;
   cell: HTMLDivElement;
-  /** 記号の入力欄。PC では入力欄ではない要素 (IME を通さないため)、タッチ端末では <input> */
-  symbol: HTMLElement;
-  name: HTMLDivElement;
-  /** 答え合わせで正解を表示する場所 */
-  answer: HTMLDivElement;
+  /** 記号欄（キーボード用）: 文字入力欄ではないので IME を通らない。キー入力は自前で処理する */
+  symbolKey: HTMLDivElement;
+  /** 記号欄（タッチ用）: 画面キーボードを出すための <input> */
+  symbolInput: HTMLInputElement;
+  /** 元素名の入力欄 */
+  nameInput: HTMLInputElement;
+  /** 記号の答え合わせで正解を表示する場所（右上） */
+  symbolAnswer: HTMLDivElement;
+  /** 名前の答え合わせで正解を表示する場所（下） */
+  nameAnswer: HTMLDivElement;
   row: number;
   col: number;
 }
@@ -37,44 +42,46 @@ function cellPosition(e: Element): { row: number; col: number } {
   return { row: periodRow(e.period), col: groupCol(e.group!) };
 }
 
-function symbolField(e: Element, useNativeInput: boolean): HTMLElement {
-  const label = `${e.z}番の元素記号`;
-  if (useNativeInput) {
-    // タッチ端末: 英字キーボードが出やすい type="url" を使う
-    const input = document.createElement("input");
-    input.type = "url";
-    input.className = "cell-symbol";
-    input.autocomplete = "off";
-    input.spellcheck = false;
-    input.setAttribute("autocapitalize", "off");
-    input.setAttribute("autocorrect", "off");
-    input.enterKeyHint = "next";
-    input.setAttribute("aria-label", label);
-    return input;
-  }
-  // PC: フォーカスできるが文字入力欄ではない要素。キー入力は自前で処理する
-  const field = div("cell-symbol");
-  field.tabIndex = 0;
-  field.setAttribute("role", "textbox");
-  field.setAttribute("aria-label", label);
-  return field;
+function textInput(className: string, label: string, type: "text" | "url"): HTMLInputElement {
+  const input = document.createElement("input");
+  input.type = type;
+  input.className = className;
+  input.autocomplete = "off";
+  input.spellcheck = false;
+  input.setAttribute("autocapitalize", "off");
+  input.setAttribute("autocorrect", "off");
+  input.enterKeyHint = "next";
+  input.setAttribute("aria-label", label);
+  return input;
 }
 
-function elementCell(e: Element, useNativeInput: boolean): CellRefs {
+function elementCell(e: Element): CellRefs {
   const cell = div("cell");
   cell.dataset.z = String(e.z);
-  const nameClass =
-    e.nameJa.length >= 9 ? "cell-name cell-name-xlong" : e.nameJa.length >= 8 ? "cell-name cell-name-long" : "cell-name";
-  const symbol = symbolField(e, useNativeInput);
-  const name = div(nameClass);
-  const answer = div("cell-answer");
-  cell.append(div("cell-z", String(e.z)), answer, symbol, name);
+
+  const symbolKey = div("cell-symbol cell-symbol-key");
+  symbolKey.tabIndex = 0;
+  symbolKey.setAttribute("role", "textbox");
+  symbolKey.setAttribute("aria-label", `${e.z}番の元素記号`);
+  // タッチ端末では英字キーボードが出やすい type="url" を使う
+  const symbolInput = textInput("cell-symbol cell-symbol-input", `${e.z}番の元素記号`, "url");
+
+  const nameInput = textInput("cell-name", `${e.z}番の元素名`, "text");
+  nameInput.lang = "ja";
+  nameInput.disabled = true;
+
+  const symbolAnswer = div("cell-answer");
+  const nameAnswer = div(
+    e.nameJa.length >= 9 ? "cell-name-answer is-xlong" : e.nameJa.length >= 7 ? "cell-name-answer is-long" : "cell-name-answer",
+  );
+
+  cell.append(div("cell-z", String(e.z)), symbolAnswer, symbolKey, symbolInput, nameInput, nameAnswer);
   const { row, col } = cellPosition(e);
   place(cell, row, col);
-  return { element: e, cell, symbol, name, answer, row, col };
+  return { element: e, cell, symbolKey, symbolInput, nameInput, symbolAnswer, nameAnswer, row, col };
 }
 
-export function buildTable(useNativeInput: boolean): { root: HTMLDivElement; cells: Map<number, CellRefs> } {
+export function buildTable(): { root: HTMLDivElement; cells: Map<number, CellRefs> } {
   const root = div("ptable");
 
   for (let g = 1; g <= 18; g++) {
@@ -112,7 +119,7 @@ export function buildTable(useNativeInput: boolean): { root: HTMLDivElement; cel
 
   const cells = new Map<number, CellRefs>();
   for (const e of ELEMENTS) {
-    const refs = elementCell(e, useNativeInput);
+    const refs = elementCell(e);
     cells.set(e.z, refs);
     root.append(refs.cell);
   }

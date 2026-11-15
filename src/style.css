@@ -13,7 +13,7 @@
   --wrong-bg: #3a1a1e;
   --blank-bg: #15171c;
   --cell-w: 5.25rem;
-  --cell-h: 4.5rem;
+  --cell-h: 5.25rem;
   font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
 }
 
@@ -73,6 +73,10 @@ body {
   color: var(--text);
   font-weight: 600;
   margin-right: 0.5rem;
+}
+
+.status .score + .score {
+  margin-left: 0.9rem;
 }
 
 .status strong {
@@ -190,13 +194,19 @@ body {
 
 .cell-symbol,
 .cell-name {
+  display: block;
   width: 100%;
+  min-width: 0;
+  border: 0;
   border-radius: 4px;
+  padding: 0;
   background: var(--surface-2);
   text-align: center;
+  font-family: inherit;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
+  outline: none;
 }
 
 .cell-symbol {
@@ -204,81 +214,96 @@ body {
   line-height: 1.6rem;
   font-size: 1.1rem;
   font-weight: 600;
-  outline: none;
 }
 
-input.cell-symbol {
-  display: block;
-  min-width: 0;
-  border: 0;
-  padding: 0;
-  font-family: inherit;
+/* 記号欄はキーボード用とタッチ用の2つがあり、入力方法に応じて片方だけ表示する */
+[data-input="key"] .cell-symbol-input,
+[data-input="touch"] .cell-symbol-key {
+  display: none;
+}
+
+.cell-symbol-input {
   /* iOS で入力時に自動ズームしないよう 16px 以上にする */
   font-size: max(1.1rem, 16px);
   caret-color: var(--accent);
 }
 
 .cell-name {
-  height: 1.2rem;
-  line-height: 1.2rem;
+  height: 1.3rem;
+  font-size: 0.68rem;
+  caret-color: var(--accent);
+}
+
+.cell-name:disabled {
+  opacity: 0.35;
+  /* 使えない入力欄はクリックを受け取らないので、マス全体のクリックとして扱わせる */
+  pointer-events: none;
+}
+
+.cell-name:read-only {
+  cursor: default;
+}
+
+/* 名前の答え合わせで表示する正解。長い元素名は少し小さくして1行に収める */
+.cell-name-answer {
+  width: 100%;
+  height: 0.85rem;
+  line-height: 0.85rem;
+  text-align: center;
+  white-space: nowrap;
   font-size: 0.62rem;
 }
 
-/* 長い元素名（アインスタイニウムなど）は少し小さくして1行に収める */
-.cell-name-long {
+.cell-name-answer.is-long {
   font-size: 0.54rem;
   letter-spacing: -0.03em;
 }
 
-.cell-name-xlong {
+.cell-name-answer.is-xlong {
   font-size: 0.5rem;
   letter-spacing: -0.05em;
 }
 
-/* 記号ターン中は名前欄を使わない */
-[data-phase="symbol"] .cell-name,
-[data-phase="symbolResult"] .cell-name {
-  opacity: 0.35;
-}
+/* ---- 記号の答え合わせ ---- */
 
-/* ---- 答え合わせの色分け ---- */
-
-.cell.is-correct {
+/* 記号ターンの結果画面ではマス全体を色分けする */
+[data-phase="symbolResult"] .cell.sym-correct {
   background: var(--correct-bg);
   border-color: var(--correct);
 }
 
-.cell.is-correct .cell-symbol {
-  background: transparent;
-  color: var(--correct);
-}
-
-.cell.is-wrong {
+[data-phase="symbolResult"] .cell.sym-wrong {
   background: var(--wrong-bg);
   border-color: var(--wrong);
 }
 
-.cell.is-wrong .cell-symbol {
-  background: transparent;
-  color: var(--wrong);
-  text-decoration: line-through;
-}
-
-.cell.is-wrong .cell-answer {
-  color: var(--text);
-}
-
-.cell.is-blank {
+[data-phase="symbolResult"] .cell.sym-blank {
   background: var(--blank-bg);
   border-style: dashed;
 }
 
-.cell.is-blank .cell-symbol {
+/* 名前ターン以降も記号の結果は文字色で残す */
+.cell.sym-correct .cell-symbol,
+.cell.sym-wrong .cell-symbol,
+.cell.sym-blank .cell-symbol {
   background: transparent;
 }
 
+.cell.sym-correct .cell-symbol {
+  color: var(--correct);
+}
+
+.cell.sym-wrong .cell-symbol {
+  color: var(--wrong);
+  text-decoration: line-through;
+}
+
+.cell.sym-wrong .cell-answer {
+  color: var(--text);
+}
+
 /* 未入力のマスは記号欄の位置に正解を薄く表示する */
-.cell.is-blank .cell-answer {
+.cell.sym-blank .cell-answer {
   top: 0.9rem;
   left: 0.2rem;
   right: 0.2rem;
@@ -288,6 +313,42 @@ input.cell-symbol {
   line-height: 1.6rem;
   color: var(--muted);
   opacity: 0.6;
+}
+
+/* ---- 名前の答え合わせ ---- */
+
+.cell.name-correct {
+  background: var(--correct-bg);
+  border-color: var(--correct);
+}
+
+.cell.name-correct .cell-name {
+  background: transparent;
+  color: var(--correct);
+}
+
+.cell.name-wrong {
+  background: var(--wrong-bg);
+  border-color: var(--wrong);
+}
+
+.cell.name-wrong .cell-name {
+  background: transparent;
+  color: var(--wrong);
+  text-decoration: line-through;
+}
+
+.cell.name-blank {
+  background: var(--blank-bg);
+  border-style: dashed;
+}
+
+.cell.name-blank .cell-name {
+  background: transparent;
+}
+
+.cell.name-blank .cell-name-answer {
+  color: var(--muted);
 }
 
 /* ---- 参照マス ---- */
