@@ -17,12 +17,21 @@ export interface CellRefs {
   symbolInput: HTMLInputElement;
   /** 元素名の入力欄 */
   nameInput: HTMLInputElement;
-  /** 記号の答え合わせで正解を表示する場所（右上） */
-  symbolAnswer: HTMLDivElement;
-  /** 名前の答え合わせで正解を表示する場所（下） */
-  nameAnswer: HTMLDivElement;
+  /** 名前ターン以降に、記号ターンの結果（○✕－）を出す右上のマーク */
+  mark: HTMLDivElement;
+  /** 答え合わせ後の記号欄（記号ターン結果では「○ Be」、名前ターン以降は正しい記号） */
+  symbolResult: HTMLDivElement;
+  /** 名前の答え合わせ後の名前欄（「✕ ベリリム」など） */
+  nameResult: HTMLDivElement;
+  /** 不正解・未入力のときに正解を出す行（「→ Be」「→ ベリリウム」） */
+  answer: HTMLDivElement;
   row: number;
   col: number;
+}
+
+/** 長い文字列を1行に収めるための文字サイズのクラス（○✕や→の分も含めた文字数で判定） */
+export function lengthClass(length: number): string {
+  return length >= 9 ? "is-xlong" : length >= 7 ? "is-long" : "";
 }
 
 function place(el: HTMLElement, row: number, col: number, colSpan = 1) {
@@ -70,15 +79,15 @@ function elementCell(e: Element): CellRefs {
   nameInput.lang = "ja";
   nameInput.disabled = true;
 
-  const symbolAnswer = div("cell-answer");
-  const nameAnswer = div(
-    e.nameJa.length >= 9 ? "cell-name-answer is-xlong" : e.nameJa.length >= 7 ? "cell-name-answer is-long" : "cell-name-answer",
-  );
+  const mark = div("cell-mark");
+  const symbolResult = div("cell-symbol-result");
+  const nameResult = div("cell-name-result");
+  const answer = div("cell-answer");
 
-  cell.append(div("cell-z", String(e.z)), symbolAnswer, symbolKey, symbolInput, nameInput, nameAnswer);
+  cell.append(div("cell-z", String(e.z)), mark, symbolKey, symbolInput, symbolResult, nameInput, nameResult, answer);
   const { row, col } = cellPosition(e);
   place(cell, row, col);
-  return { element: e, cell, symbolKey, symbolInput, nameInput, symbolAnswer, nameAnswer, row, col };
+  return { element: e, cell, symbolKey, symbolInput, nameInput, mark, symbolResult, nameResult, answer, row, col };
 }
 
 export function buildTable(): { root: HTMLDivElement; cells: Map<number, CellRefs> } {

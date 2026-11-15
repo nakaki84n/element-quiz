@@ -7,8 +7,8 @@
   --text: #e6e8ee;
   --muted: #8a91a3;
   --accent: #7aa2ff;
-  --correct: #3fb27f;
-  --correct-bg: #15301f;
+  --correct: #5cc8ff;
+  --correct-bg: #0f2733;
   --wrong: #ff6b6b;
   --wrong-bg: #3a1a1e;
   --blank-bg: #15171c;
@@ -185,15 +185,6 @@ body {
   color: var(--muted);
 }
 
-/* 答え合わせで表示する正解 */
-.cell-answer {
-  position: absolute;
-  top: 0.15rem;
-  right: 0.3rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
 .cell-symbol,
 .cell-name {
   display: block;
@@ -246,111 +237,140 @@ body {
   cursor: default;
 }
 
-/* 名前の答え合わせで表示する正解。長い元素名は少し小さくして1行に収める */
-.cell-name-answer {
+/* ---- 答え合わせの結果表示 ----
+   自分の答えの前に ○（正解）✕（不正解）－（未入力）を付け、
+   不正解・未入力のときは下の行に「→ 正解」を出す。 */
+
+.cell-mark,
+.cell-symbol-result,
+.cell-name-result,
+.cell-answer {
+  display: none;
+}
+
+/* 結果の画面では入力欄の代わりに結果を表示する */
+[data-phase="symbolResult"] .cell-symbol-key,
+[data-phase="symbolResult"] .cell-symbol-input,
+[data-phase="symbolResult"] .cell-name,
+[data-phase="name"] .cell-symbol-key,
+[data-phase="name"] .cell-symbol-input,
+[data-phase="nameResult"] .cell-symbol-key,
+[data-phase="nameResult"] .cell-symbol-input,
+[data-phase="nameResult"] .cell-name {
+  display: none;
+}
+
+[data-phase="symbolResult"] .cell-symbol-result,
+[data-phase="symbolResult"] .cell-answer,
+[data-phase="name"] .cell-symbol-result,
+[data-phase="name"] .cell-mark,
+[data-phase="nameResult"] .cell-symbol-result,
+[data-phase="nameResult"] .cell-mark,
+[data-phase="nameResult"] .cell-name-result,
+[data-phase="nameResult"] .cell-answer {
+  display: block;
+}
+
+.cell-symbol-result {
+  width: 100%;
+  height: 1.6rem;
+  line-height: 1.6rem;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.cell-name-result {
+  width: 100%;
+  height: 1.3rem;
+  line-height: 1.3rem;
+  text-align: center;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.cell-answer {
   width: 100%;
   height: 0.85rem;
   line-height: 0.85rem;
   text-align: center;
-  white-space: nowrap;
   font-size: 0.62rem;
+  white-space: nowrap;
 }
 
-.cell-name-answer.is-long {
+/* 記号ターンの結果では「→ Be」を少し大きく */
+[data-phase="symbolResult"] .cell-answer {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+/* 長い元素名は少し小さくして1行に収める */
+.cell-name-result.is-long,
+.cell-answer.is-long {
   font-size: 0.54rem;
   letter-spacing: -0.03em;
 }
 
-.cell-name-answer.is-xlong {
-  font-size: 0.5rem;
-  letter-spacing: -0.05em;
+.cell-name-result.is-xlong,
+.cell-answer.is-xlong {
+  font-size: 0.48rem;
+  letter-spacing: -0.06em;
 }
 
-/* ---- 記号の答え合わせ ---- */
+.res-mark {
+  margin-right: 0.2em;
+  font-weight: 800;
+}
 
-/* 記号ターンの結果画面ではマス全体を色分けする */
-[data-phase="symbolResult"] .cell.sym-correct {
+.res-correct {
+  color: var(--correct);
+}
+
+.res-wrong {
+  color: var(--wrong);
+}
+
+.res-blank {
+  color: var(--muted);
+}
+
+.res-arrow {
+  margin-right: 0.2em;
+  color: var(--correct);
+  font-weight: 800;
+}
+
+/* 名前ターン以降、記号ターンの結果は右上の小さなマークで示す */
+.cell-mark {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.3rem;
+  font-size: 0.7rem;
+  line-height: 1;
+}
+
+.cell-mark .res-mark {
+  margin: 0;
+}
+
+/* マス全体の色: 記号ターンの結果画面では記号の結果、名前の結果画面では名前の結果 */
+[data-phase="symbolResult"] .cell.sym-correct,
+[data-phase="nameResult"] .cell.name-correct {
   background: var(--correct-bg);
   border-color: var(--correct);
 }
 
-[data-phase="symbolResult"] .cell.sym-wrong {
+[data-phase="symbolResult"] .cell.sym-wrong,
+[data-phase="nameResult"] .cell.name-wrong {
   background: var(--wrong-bg);
   border-color: var(--wrong);
 }
 
-[data-phase="symbolResult"] .cell.sym-blank {
+[data-phase="symbolResult"] .cell.sym-blank,
+[data-phase="nameResult"] .cell.name-blank {
   background: var(--blank-bg);
   border-style: dashed;
-}
-
-/* 名前ターン以降も記号の結果は文字色で残す */
-.cell.sym-correct .cell-symbol,
-.cell.sym-wrong .cell-symbol,
-.cell.sym-blank .cell-symbol {
-  background: transparent;
-}
-
-.cell.sym-correct .cell-symbol {
-  color: var(--correct);
-}
-
-.cell.sym-wrong .cell-symbol {
-  color: var(--wrong);
-  text-decoration: line-through;
-}
-
-.cell.sym-wrong .cell-answer {
-  color: var(--text);
-}
-
-/* 未入力のマスは記号欄の位置に正解を薄く表示する */
-.cell.sym-blank .cell-answer {
-  top: 0.9rem;
-  left: 0.2rem;
-  right: 0.2rem;
-  text-align: center;
-  font-size: 1.1rem;
-  font-weight: 600;
-  line-height: 1.6rem;
-  color: var(--muted);
-  opacity: 0.6;
-}
-
-/* ---- 名前の答え合わせ ---- */
-
-.cell.name-correct {
-  background: var(--correct-bg);
-  border-color: var(--correct);
-}
-
-.cell.name-correct .cell-name {
-  background: transparent;
-  color: var(--correct);
-}
-
-.cell.name-wrong {
-  background: var(--wrong-bg);
-  border-color: var(--wrong);
-}
-
-.cell.name-wrong .cell-name {
-  background: transparent;
-  color: var(--wrong);
-  text-decoration: line-through;
-}
-
-.cell.name-blank {
-  background: var(--blank-bg);
-  border-style: dashed;
-}
-
-.cell.name-blank .cell-name {
-  background: transparent;
-}
-
-.cell.name-blank .cell-name-answer {
-  color: var(--muted);
 }
 
 /* ---- 参照マス ---- */
@@ -680,8 +700,8 @@ body {
 }
 
 /* 名前ターン中は記号ターンの結果を隠す */
-[data-show-symbols-in-name="false"][data-phase="name"] .cell .cell-symbol,
-[data-show-symbols-in-name="false"][data-phase="name"] .cell .cell-answer {
+[data-show-symbols-in-name="false"][data-phase="name"] .cell .cell-symbol-result,
+[data-show-symbols-in-name="false"][data-phase="name"] .cell .cell-mark {
   visibility: hidden;
 }
 

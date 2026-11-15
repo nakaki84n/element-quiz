@@ -7,7 +7,7 @@ import { renderHistory } from "./history";
 import { createSettings } from "./settings";
 import { loadSession, recordNameTurn, recordSymbolTurn, saveSession } from "./storage";
 import { letterFromKey, normalizeSymbol, SYMBOL_MAX } from "./symbol";
-import { buildTable, type CellRefs } from "./table";
+import { buildTable, type CellRefs, lengthClass } from "./table";
 
 type Phase = "symbol" | "symbolResult" | "name" | "nameResult";
 type Result = "correct" | "wrong" | "blank";
@@ -317,7 +317,6 @@ function showSymbolResults() {
     const result: Result = !answer ? "blank" : answer === refs.element.symbol ? "correct" : "wrong";
     state.symbolResults.set(z, result);
     refs.cell.classList.add(`sym-${result}`);
-    refs.symbolAnswer.textContent = result === "correct" ? "" : refs.element.symbol;
   }
 }
 
@@ -346,7 +345,69 @@ function showNameResults() {
     const result: Result = !answer ? "blank" : isCorrectName(answer, refs.element) ? "correct" : "wrong";
     state.nameResults.set(z, result);
     refs.cell.classList.add(`name-${result}`);
-    refs.nameAnswer.textContent = result === "correct" ? "" : refs.element.nameJa;
+  }
+}
+
+// ---- 答え合わせ結果の表示 ----
+// 自分の答えの前に ○（正解）✕（不正解）－（未入力）を付け、
+// 不正解・未入力のときは下の行に「→ 正解」を出す。
+
+const MARKS: Record<Result, string> = { correct: "○", wrong: "✕", blank: "－" };
+
+function markSpan(result: Result): HTMLSpanElement {
+  const span = document.createElement("span");
+  span.className = `res-mark res-${result}`;
+  span.textContent = MARKS[result];
+  return span;
+}
+
+/** 「○ Be」「✕ ベリリム」のように、結果の記号と自分の答えを並べる */
+function fillResult(el: HTMLElement, result: Result, mine: string) {
+  el.replaceChildren(markSpan(result), mine);
+}
+
+/** 「→ Be」のように正解を出す（正解したマスでは空にする） */
+function fillAnswer(el: HTMLElement, result: Result, correct: string) {
+  if (result === "correct") {
+    el.replaceChildren();
+    return;
+  }
+  const arrow = document.createElement("span");
+  arrow.className = "res-arrow";
+  arrow.textContent = "→";
+  el.replaceChildren(arrow, correct);
+}
+
+/** いまのターンに合わせて、各マスの結果表示を作り直す */
+function paintResults() {
+  const targets = new Set(state.targets);
+  for (const [z, refs] of cells) {
+    const sym = state.symbolResults.get(z);
+    const name = state.nameResults.get(z);
+    const e = refs.element;
+    refs.mark.replaceChildren();
+    refs.symbolResult.replaceChildren();
+    refs.nameResult.replaceChildren();
+    refs.answer.replaceChildren();
+    refs.nameResult.className = "cell-name-result";
+    refs.answer.className = "cell-answer";
+    if (!targets.has(z) || !sym) continue;
+
+    if (state.phase === "symbolResult") {
+      fillResult(refs.symbolResult, sym, getSymbol(z));
+      fillAnswer(refs.answer, sym, e.symbol);
+      continue;
+    }
+    // 名前ターン以降: 記号欄には正しい記号を出し、記号ターンの結果は右上のマークで示す
+    refs.mark.append(markSpan(sym));
+    refs.symbolResult.textContent = e.symbol;
+    if (state.phase === "nameResult" && name) {
+      const mine = getName(z).trim();
+      fillResult(refs.nameResult, name, mine);
+      refs.nameResult.classList.add(...lengthClass(mine.length + 2).split(" ").filter(Boolean));
+      fillAnswer(refs.answer, name, e.nameJa);
+      refs.answer.classList.add(...lengthClass(e.nameJa.length + 2).split(" ").filter(Boolean));
+    }
   }
 }
 
@@ -362,8 +423,6 @@ function reset(focusFirst = true) {
     refs.cell.classList.remove(
       ...["correct", "wrong", "blank"].flatMap((r) => [`sym-${r}`, `name-${r}`]),
     );
-    refs.symbolAnswer.textContent = "";
-    refs.nameAnswer.textContent = "";
   }
   render();
   scroller.scrollTo({ left: 0 });
@@ -495,6 +554,7 @@ function renderStatus() {
 
 function render() {
   persist();
+  paintResults();
   app.dataset.phase = state.phase;
   app.dataset.input = state.inputMode;
   app.dataset.mode = state.mode;

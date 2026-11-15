@@ -1,7 +1,7 @@
 // 苦手マップ: 元素ごとの累計正答率を、周期表のマスの色で表示する
 
 import { loadRecords, type ElementStat } from "./storage";
-import type { CellRefs } from "./table";
+import { type CellRefs, lengthClass } from "./table";
 
 type Kind = "symbol" | "name";
 
@@ -40,7 +40,7 @@ export function createHeatmap(app: HTMLElement, cells: Map<number, CellRefs>) {
     symbol.className = "cell-map-symbol";
     symbol.textContent = refs.element.symbol;
     const name = document.createElement("div");
-    name.className = refs.nameAnswer.className.replace("cell-name-answer", "cell-map-name");
+    name.className = `cell-map-name ${lengthClass(refs.element.nameJa.length)}`;
     name.textContent = refs.element.nameJa;
     const stat = document.createElement("div");
     stat.className = "cell-map-stat";
